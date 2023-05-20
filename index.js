@@ -1,343 +1,268 @@
-const sequelize = require('./db/mysql')
-
-const express = require('express')
-
-const users = require('./models/user')
-const tweets = require('./models/tweet')
-const Followers =require('./models/followers')
-const Saved_tweets =require('./models/saved_tweets')
-const Hidden_tweets=require('./models/hidden_tweets')
-const Comments = require('./models/comments')
-const Likes =require('./models/likes')
-
-var cors = require('cors')
-
-const app = express()
-const PORT = process.env.PORT
-const router = express.Router()
-
-
-app.use(cors())
-app.use(express.json())
-app.use(router)
-app.use(users)
-app.use(tweets)
-app.use(Followers)
-app.use(Saved_tweets)
-app.use(Hidden_tweets)
-app.use(Comments)
-app.use(Likes)
-
-
-router.get("/", async (req,res)=>{
-    res.send("Hello !");
-});
-
-//sign up
-router.post("/sign/user",async (req,res)=>{
-    const user = new users(req.body)
-    try {
-        await user.save()
-        res.status(201).send({user})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-//login
-router.post("/login/user",async (req,res)=>{
-    var _userName = req.body.username;
-    var _password = req.body.Password;
-    try {
-       const l1 = await users.findByPk(_userName);
-       if(l1.Password==_password)
-        res.send("logged in successfully");
-       else res.send("wrong username or password");
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-//add new tweet
-router.post("/newTweet",async (req,res)=>{
-    const tweet = new tweets(req.body)
-    try {
-        await tweet.save()
-        res.status(201).send({tweet})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-//delete tweet
-router.delete("/deleteTweet/:id",async (req,res)=>{
-    const _tweetid = req.params.id
-    const count = await tweets.destroy({ where: { id: _tweetid } });
-    res.send(`deleted row(s): ${count}`);
-});
-
-// update one Tweet
-router.put('/updateTweet/:id', async (req, res) => {
-    const _tweetid = req.params.id
-
-    const Description = req.body.Description
-
-
-    const [updatedRows] = await tweets.update(
-        {
-            Description: Description,
-        },
-        {
-            where: { ID: _tweetid },
-        }
-    );
-
-    if (updatedRows) {
-        res.send(`Updated rows: ${updatedRows}`);
-    } else {
-        res.send("tweet not found");
-    }
-})
-//get all tweets
-router.get("/allTweets", async (req, res) => {
-    try {
-        const l1 = await tweets.findAll({})
-        res.status(200).send(l1)
-
-    } catch (e) {
-        res.status(500).send(e)
-    }
-})
-// get user tweets
-router.get("/userTweets/:id", async (req, res) => {
-    const userid = req.params.id
-    const t1 = await tweets.findAll(
-        {
-            where: { User_Id: userid }
-        }
-    );
-        res.send(t1);
-})
-//get user information
-router.get("/userInfo/:id", async (req, res) => {
-    const userid = req.params.id
-    const t1 = await users.findAll(
-        {
-            where: { ID: userid }
-        }
-    );
-    res.send(t1);
-})
-//edit User Information
-router.put('/editUserInfo/:id', async (req, res) => {
-    const userid = req.params.id
-
-    const name = req.body.name
-    const Birthday = req.body.Birthday
-    const Address = req.body.Address
-
-    const [updatedRows] = await users.update(
-        {
-            name: name,
-            Birthday:Birthday,
-            Address:Address
-        },
-        {
-            where: { ID: userid },
-        }
-    );
-
-    if (updatedRows) {
-        res.send(`Updated users: ${updatedRows}`);
-    } else {
-        res.send(" user not found");
-    }
-})
-//change password
-router.put('/changePassword/:id', async (req, res) => {
-    const userid = req.params.id
-    const newpass = req.body.new
-    const oldpass = req.body.old
-
-
-    const [updatedRows] = await users.update(
-        {
-            Password: newpass
-        },
-        {
-            where: { ID: userid , Password:oldpass },
-        }
-    );
-
-    if (updatedRows) {
-        res.send(`password changed`);
-    } else {
-        res.send("wrong password");
-    }
-})
-//follow a user
-router.post("/followUser",async (req,res)=>{
-    const follower = new Followers(req.body)
-    try {
-        await follower.save()
-        res.status(201).send({follower})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-//unfollow a user
-router.delete("/unfollowUser",async (req,res)=>{
-    const Followed_Id = req.body.Followed_Id
-    const Follower_Id = req.body.Follower_Id
-
-    const count = await Followers.destroy({ where: { Followed_Id: Followed_Id,Follower_Id:Follower_Id } });
-    res.send(`deleted row(s): ${count}`);
-});
-// get user following user tweets
-router.get("/userFollowed/:id", async (req, res) => {
-    const userid = req.params.id
-    const t1= await Followers.findAll(
-        {
-            where: {Follower_Id: userid}
-        }
-
-    );
-     var datanew = new Array(t1.length);
-
-     for(let i=0;i<t1.length;i++) {
-         datanew[i]=t1[i].Followed_Id;
-     }
-    var datanew1 = new Array(t1.length);
-
-    for(let i=0;i<datanew.length;i++) {
-        datanew1[i]=await tweets.findAll(
-            {
-                where: {User_Id: datanew[i]}
-                  });
-    }
-    res.send(datanew1);
-})
-//add tweet to saved tweets
-router.post("/saveTweet",async (req,res)=>{
-    const ST = new Saved_tweets(req.body)
-    try {
-        await ST.save()
-        res.status(201).send({ST})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-//delete tweet from saved tweets
-router.delete("/deleteFromSaved/:id",async (req,res)=>{
-    const tweet_Id = req.params.id
-
-    const count = await Saved_tweets.destroy({ where: { ID: tweet_Id } });
-    res.send(`unsaved tweets: ${count}`);
-});
-module.exports = router
-// get the saved tweets
-router.get("/getsavedTweet/:id", async (req, res) => {
-    const userid = req.params.id
-    const t1 = await Saved_tweets.findAll(
-        {
-            where: { User_Id: userid }
-        }
-    );
-    res.send(t1);
-})
-// Hide A tweet
-router.post("/HideTweet",async (req,res)=>{
-    const ST = new Hidden_tweets(req.body)
-    try {
-        await ST.save()
-        res.status(201).send({ST})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-// unhide a tweet
-router.delete("/unhideTweet/:id",async (req,res)=>{
-    const tweet_Id = req.params.id
-
-    const count = await Hidden_tweets.destroy({ where: { ID: tweet_Id } });
-    res.send(`unhide tweets: ${count}`);
-});
-//comment on a tweet
-router.post("/commentOnTweet",async (req,res)=>{
-    const ST = new Comments(req.body)
-    try {
-        await ST.save()
-        res.status(201).send({ST})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-// get tweet comments
-router.get("/getTweetComments/:id", async (req, res) => {
-    const tweetid = req.params.id
-    const t1 = await Comments.findAll(
-        {
-            where: { Tweet_Id: tweetid }
-        }
-    );
-    res.send(t1);
-})
-// delete tweet comment
-router.delete("/deleteComment/:id",async (req,res)=>{
-    const comment_Id = req.params.id
-
-    const count = await Comments.destroy({ where: { ID: comment_Id } });
-    res.send(`deleted comments on tweets: ${count}`);
-});
-// like a tweet
-router.post("/likeTweet",async (req,res)=>{
-    const ST = new Likes(req.body)
-    try {
-        await ST.save()
-        res.status(201).send({ST})
-
-    } catch (e) {
-        res.status(400).send(e)
-    }
-});
-router.delete("/unlikeTweet/:id",async (req,res)=>{
-    const like_Id = req.params.id
-
-    const count = await Likes.destroy({ where: { ID: like_Id } });
-    res.send(`deleted likes on tweets: ${count}`);
-});
-// get tweet likes
-router.get("/getTweetlikes/:id", async (req, res) => {
-    const tweetid = req.params.id
-    const t1 = await Likes.findAll(
-        {
-            where: { Tweet_Id: tweetid }
-        }
-    );
-    res.send(t1);
-})
-// get tweet likes count
-router.get("/getTweetlikescount/:id", async (req, res) => {
-    const tweetid = req.params.id
-    const t1 = await Likes.findAll(
-        {
-            attributes: [
-               [sequelize.fn("COUNT", sequelize.col("*")),"count"]
-            ],
-            where: { Tweet_Id: tweetid }
-        }
-    );
-   // console.log(t1)
-    if (!t1.length) {
-        return res.status(404).send("No Results Found")
-    }
-    res.status(200).send(t1)
-})
-
-
+const express = require('express');
+const db = require('../advproj/database');
+const bodyParser = require('body-parser');
+const app = express();
+app.use(bodyParser.json());
+const findFreePorts = require('find-free-ports');
+const PORT = process.env.PORT  || 3000;
 app.listen(PORT, () => {
-    console.log("Express server is up and running on port " + PORT)
+  console.log('Server started on port 4000');
 })
+//test
+app.get('/', (req, res) => {
+  res.send('Welcome to the homepage!');
+});
+const JobListing = require('./models/joblistings ');//C:\Users\admin\Downloads\advproj\models\joblistings .js
+const employers = require('C:/Users/admin/Downloads/advproj/models/employers.js');
+
+
+//sign up employer
+app.post("/sign/employer", (req,res)=>{
+  const {id , companyname, email, phone, password, location} = req.body;
+
+  // Create a new instance of the JobListing model
+  //const employer = new employers(id , companyname, email, phone, password,location);
+  //const em = new employers(req.body)
+  db.query('SELECT * FROM employers WHERE email = ?', [email], (err, results) => {
+    if (err) {
+      console.error('Error checking email:', err);
+      return res.status(500).json({ error: 'An error occurred while signing up' });
+    }
+
+    if (results.length > 0) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    // Insert the new job seeker into the database
+    db.query( 'INSERT INTO employers (id, companyname, email, phone , password, location) VALUES (?, ?, ?, ? ,?,?)',
+    [id, companyname, email , phone , password, location], (err, result) => {
+      if (err) {
+        console.error('Error signing up:', err);
+        res.status(500).json({ error: 'An error occurred while signing up' });
+      } else {
+        res.json({ message: 'employer sign up successfully' });
+      }
+    });
+  });
+});
+ 
+//sign up seeker
+app.post("/sign/seeker", (req,res)=>{
+  const {seeker_id , fname, lname, email, cv, password} = req.body;
+
+  // Create a new instance of the JobListing model
+    db.query('SELECT * FROM job_seekers WHERE email = ?', [email], (err, results) => {
+    if (err) {
+      console.error('Error checking email:', err);
+      return res.status(500).json({ error: 'An error occurred while signing up' });
+    }
+
+    if (results.length > 0) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    // Insert the new job seeker into the database
+    db.query('INSERT INTO job_seekers (seeker_id , fname, lname, email, cv, password) VALUES (? , ?, ?, ?, ? , ?)', [seeker_id , fname, lname, email, cv, password], (err, result) => {
+      if (err) {
+        console.error('Error signing up:', err);
+        res.status(500).json({ error: 'An error occurred while signing up' });
+      } else {
+        res.json({ message: 'Job seeker signed up successfully' });
+      }
+    });
+  });
+});
+
+// Login route for employers
+let loggedInEmployeeId = null;
+app.post('/login/employer', (req, res) => {
+  // Extract the email and password from the request body
+  const { email, password } = req.body;
+
+  // Check if the email exists in the employers table
+  db.query(
+    'SELECT * FROM employers WHERE email = ? AND password = ?',
+    [email, password],
+    (err, results) => {
+      if (err) {
+        console.error('Error retrieving employer:', err);
+        res.status(500).json({ error: 'An error occurred' });
+      } else if (results.length === 0) {
+        res.status(401).json({ error: 'Invalid credentials' });
+      } else {
+        loggedInEmployeeId = results[0].id; 
+        res.status(200).json({ message: 'Login successful' });
+      }
+    }
+  );
+});
+
+// Login route for employers
+let loggedInSeekerId = null;
+app.post('/login/seeker', (req, res) => {
+  // Extract the email and password from the request body
+  const { email, password } = req.body;
+
+  // Check if the email exists in the employers table
+  db.query(
+    'SELECT * FROM job_seekers WHERE email = ? AND password = ?',
+    [email, password],
+    (err, results) => {
+      if (err) {
+        console.error('Error retrieving employer:', err);
+        res.status(500).json({ error: 'An error occurred' });
+      } else if (results.length === 0) {
+        res.status(401).json({ error: 'Invalid credentials' });
+      } else {
+        loggedInSeekerId = results[0].seeker_id; 
+        res.status(200).json({ message: 'Login successful' });
+      }
+    }
+  );
+});
+//create JobListing
+app.post('/job-listings', (req, res) => {
+  const {jobid , title, description, requirements, salaryRange , dateposted ,location } = req.body;
+
+  // Create a new instance of the JobListing model
+  const jobListing = new JobListing(jobid , loggedInEmployeeId ,title, description, requirements, salaryRange, dateposted, location);
+
+  // Save the job listing to the database
+  jobListing.save((err, result) => {
+    if (err) {
+      res.status(500).json({ error: 'An error occurred' });
+    } else {
+      res.status(201).json({ message: 'Job listing created successfully' });
+    }
+  });
+});
+
+// Get all job listings
+app.get('/joblistings', (req, res) => {
+  // Retrieve all job listings from the database
+  db.query('SELECT * FROM job_listings', (err, result) => {
+    if (err) {
+      console.error('Error retrieving job listings: ', err);
+      res.status(500).json({ error: 'An error occurred' });
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+// Get a specific job listing
+app.get('/job-listings/:id', (req, res) => {
+  const jobId = req.params.id;
+
+  // Retrieve the specific job listing from the database
+  db.query(
+    'SELECT * FROM job_listings WHERE jobid = ?',
+    [jobId],
+    (err, result) => {
+      if (err) {
+        console.error('Error retrieving job listing: ', err);
+        res.status(500).json({ error: 'An error occurred' });
+      } else if (result.length === 0) {
+        res.status(404).json({ error: 'Job listing not found' });
+      } else {
+        res.json(result[0]);
+      }
+    }
+  );
+});
+
+// Update a job listing
+app.put('/job-listings/:id', (req, res) => {
+  const jobId = req.params.id;
+  const { title, description, requirements, salaryRange ,dateposted, location} = req.body;
+
+  // Update the job listing in the database
+  db.query(
+    'UPDATE job_listings SET jobtitle = ?, jobdes = ?, jobreq = ?, SalaryRange= ?,dateposted=?,location=? WHERE jobid = ?',
+    [title, description, requirements, salaryRange,dateposted,location, jobId],
+    (err, result) => {
+      if (err) {
+        console.error('Error updating job listing: ', err);
+        res.status(500).json({ error: 'An error occurred' });
+      } else if (result.affectedRows === 0) {
+        res.status(404).json({ error: 'Job listing not found' });
+      } else {
+        res.json({ message: 'Job listing updated successfully' });
+      }
+    }
+  );
+});
+
+// Delete a job listing
+app.delete('/job-listings/:id', (req, res) => {
+  const jobId= req.params.id;
+
+  // Delete the job listing from the database
+  db.query(
+  'DELETE FROM job_listings WHERE jobid = ?',
+  [jobId],
+  (err, result) => {
+  if (err) {
+  console.error('Error deleting job listing: ', err);
+  res.status(500).json({ error: 'An error occurred' });
+  } else if (result.affectedRows === 0) {
+  res.status(404).json({ error: 'Job listing not found' });
+  } else {
+  res.json({ message: 'Job listing deleted successfully' });
+  }
+  }
+  );
+  });
+  //////////////////////////////////////////////////////////////////
+  // feature #2
+  //make search
+  //let serarchid=0;
+app.get('/jobs/:title/:location', (req, res) => {
+  //searchid++;
+  const title = req.params.title;
+  const  location  = req.params.location;
+  db.query(
+    'SELECT * FROM job_listings WHERE jobtitle = ?  AND location = ? ',
+    [title,location],
+    (err, result) => {
+      if (err) {
+        console.error('Error retrieving job listing: ', err);
+        res.status(500).json({ error: 'An error occurred' });
+      } else if (result.length === 0) {
+        res.status(404).json({ error: 'Job listing not found' });
+      } else {
+        //const searchFilters =  title ;
+
+        db.query('INSERT INTO jobs_searches ( seeker_id , title, location) VALUES (? ,?,?)', [loggedInSeekerId,title,location], (err, searchResult) => {
+          if (err) {
+            console.error('Error saving search: ', err);
+          }
+
+          res.json({ jobs: result });
+        });
+
+        //res.json(result[0]);
+      }
+    }
+  );
+  });
+ 
+
+// Get all job searches
+app.get('/job-searches', (req, res) => {
+  // Retrieve all job searches from the database
+  db.query('SELECT * FROM jobs_searches', (err, result) => {
+    if (err) {
+      console.error('Error retrieving job searches: ', err);
+      res.status(500).json({ error: 'An error occurred' });
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+
+
